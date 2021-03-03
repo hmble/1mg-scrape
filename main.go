@@ -6,18 +6,43 @@ import (
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/gocolly/colly"
+	"github.com/gocolly/colly/extensions"
+	"github.com/gocolly/colly/queue"
 )
 
 	type medicinesDetails struct {
-		Name string `selector:"p.Card__productName__qM0Yq.bodyMedium"`
-		Price string `selector:"span.l3Regular"`
+		Name string 
+		Price string
 		CompanyName string
 		Contents string
 	}
+
+	func joinWithDot(classList []string) string {
+		return "div." + strings.Join(classList, ".")
+	}
+
+	 
 func main() {
-	fName := "medicineDetails.csv"
+	
+	var (
+			name []string = []string{
+				"style__font-bold___1k9Dl",
+				"style__font-14px___YZZrf",
+				"style__flex-row___2AKyf",
+				"style__space-between___2mbvn",
+				"style__padding-bottom-5px___2NrDR",
+			}
+			companyParent []string = []string{
+				"style__flex-column___1zNVy",
+				"style__font-12px___2ru_e",
+			}
+
+	)
+
+	fName := "medicineDetailsLabelB.csv"
 	file, err := os.Create(fName)
 	if err != nil {
 		log.Fatalf("Cannot create file %q: %s\n", fName, err)
@@ -38,10 +63,11 @@ func main() {
 		colly.CacheDir("./1mg_cache"),
 		colly.Async(true),
 	)
-// 	c.Limit(&colly.LimitRule{
-// 	RandomDelay: 2 * time.Second,
-// 	Parallelism: 4,
-// })
+
+	c.Limit(&colly.LimitRule{
+	RandomDelay: 2 * time.Second,
+	Parallelism: 4,
+	})
 
 // proxySwitcher, err := proxy.RoundRobinProxySwitcher(
 // 	"socks5://185.189.199.75:23500",
@@ -62,53 +88,46 @@ func main() {
 //   log.Fatal(err)
 // }
 // c.SetProxyFunc(proxySwitcher)
-// extensions.RandomUserAgent(c)
-// 	q, _ := queue.New(
-// 			2, // Number of consumer threads
-// 			&queue.InMemoryQueueStorage{MaxSize: 10000}, // Use default queue storage
-// 		)
-// 		c.OnRequest(func(r *colly.Request) {
-// 			log.Println("visiting", r.URL.String())
+extensions.RandomUserAgent(c)
+	q, _ := queue.New(
+			4, // Number of consumer threads
+			&queue.InMemoryQueueStorage{MaxSize: 10000}, // Use default queue storage
+		)
+		c.OnRequest(func(r *colly.Request) {
+			log.Println("visiting", r.URL.String())
 			
-// 		})
-// c.OnResponse(func(r *colly.Response) {
-// 		log.Println(r.StatusCode)
-// 	})
-		medicines := make([]*medicinesDetails, 0, 20)
-	c.OnHTML("div.Card__container__35Kl4", func(e *colly.HTMLElement) {
+		})
+c.OnResponse(func(r *colly.Response) {
+		log.Println(r.Request.URL," -> ", r.StatusCode)
+	})
+	c.OnHTML("div.style__flex-1___A_qoj", func(e *colly.HTMLElement) {
 			medicine := &medicinesDetails{}
-			e.Unmarshal(medicine)	
-			fullText := e.ChildText("p.Card__productDescription__2HHjt")
-			if strings.Contains(fullText, "Prescription") {
-				medicine.CompanyName = e.ChildText("p.Card__productDescription__2HHjt:nth-child(4)")
-				medicine.Contents = e.ChildText("p.Card__productDescription__2HHjt:nth-child(5)")
-				}else {
-					medicine.CompanyName = e.ChildText("p.Card__productDescription__2HHjt:nth-child(3)")
-					medicine.Contents = e.ChildText("p.Card__productDescription__2HHjt:nth-child(4)")
-					
-			}
-			medicines = append(medicines, medicine)
-			fmt.Printf("%#v", medicine)
+			medicine.Name = e.ChildText(joinWithDot(name) + " > div:first-child")
+			medicine.Price = e.ChildText(joinWithDot(name) + " > div:last-child")
+			 medicine.CompanyName = e.ChildText(joinWithDot(companyParent) + " > div:last-child")
+			 medicine.Contents = e.ChildText("div.style__product-content___5PFBW")
+
+			
 			writer.Write([]string{
 				medicine.Name,
 				medicine.Price,
 				medicine.CompanyName,
 				medicine.Contents,
 			})
-	})
+	})	
 
 	url := "https://www.1mg.com/drugs-all-medicines"
 
-	c.Visit(url)
-	// for i := 1; i <= 10; i++ {
-	// 	// Add URLs to the queue
-	// 	q.AddURL(fmt.Sprintf("%s?page=%d", url, i))
-	// }
+	label := "b"
+// c.Visit(url)
+	for i := 1; i <= 225; i++ {
+		// Add URLs to the queue
+		q.AddURL(fmt.Sprintf("%s?page=%d&label=%s", url, i, label))
+	}
 
-	// q.Run(c)
+	q.Run(c)
 
-	// c.Wait()
+	c.Wait()
 
-	// fmt.Println("Total length of medicines ", len(medicines))
 
 }
