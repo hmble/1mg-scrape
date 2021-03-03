@@ -36,7 +36,7 @@ func main() {
 		// Cache responses to prevent multiple download of pages
 		// even if the collector is restarted
 		colly.CacheDir("./1mg_cache"),
-		// colly.Async(true),
+		colly.Async(true),
 	)
 // 	c.Limit(&colly.LimitRule{
 // 	RandomDelay: 2 * time.Second,
